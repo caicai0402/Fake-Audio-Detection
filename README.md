@@ -5,7 +5,7 @@ The original paper can be found at: https://arxiv.org/abs/2211.00226
 
 ## Introduction
 
-[alt text](https://github.com/caicai0402/Fake-Audio-Detection/Model_Architecture.png)
+[alt text](https://github.com/caicai0402/Fake-Audio-Detection/blob/main/Model_Architecture.png)
 
 ## Usage
 Please see run.sh as the main entry.
