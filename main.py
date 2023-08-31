@@ -1,49 +1,91 @@
+import yaml
+import argparse
+import numpy as np
+
 import torch
-from MyModel import MyModel
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
 
-def calculate_err(predictions, targets, threshold=0.5):
-    first, second = 0, 0
-    for element in predictions[0]:
-        if element >= first:
-            first, second = element, first
-        elif element > second:
-            second = element
+from model   import MainModel
+from runner  import Runner
+from dataset import AddDataset, EvalDataset
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--eval'  , action='store_true', default=False)
+parser.add_argument('--test'  , action='store_true', default=False)
+parser.add_argument('--train' , action='store_true', default=False)
     
-    binary_predictions = (predictions >= max(second, threshold)).int()
-    if (targets == 0).sum().item != 0:
-        fpr = ((binary_predictions == 1) & (targets == 0)).sum().item() / (targets == 0).sum().item()
-    else:
-        return ((binary_predictions == 0) & (targets == 1)).sum().item() / (targets == 1).sum().item()
+parser.add_argument('--seed'  , type=int, default=0)
+parser.add_argument('--batch' , type=int, default=256)
+parser.add_argument('--device', type=str, default='cuda')
+parser.add_argument('--params', type=str, default=None)
 
-    if (targets == 1).sum().item() != 0:
-        fnr = ((binary_predictions == 0) & (targets == 1)).sum().item() / (targets == 1).sum().item()
-    else:
-        return ((binary_predictions == 1) & (targets == 0)).sum().item() / (targets == 0).sum().item()
+parser.add_argument('--title'  , type=str, default='Untitled')
+parser.add_argument('--outfile', type=str, default=None)
+
+parser.add_argument('--model_conf', type=str, default='../config/model/SeNet.yaml')
+parser.add_argument('--hyper_conf', type=str, default='../config/hyper/hyper.yaml')
+args = parser.parse_args()
+
+with open(args.hyper_conf) as conf:
+    vars(args).update(yaml.load(conf, Loader=yaml.Loader))
+
+with open(args.model_conf) as conf:
+    model_args = yaml.load(conf, Loader=yaml.Loader)
+
+
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+torch.backends.cudnn.deterministic = True
+device = torch.device(args.device)
+
+
+print(args.title, flush=True)
+
+model = MainModel(**model_args).to(device)
+n_params = sum( p.numel() for p in model.parameters() )
+print(f'[Model] -# params: {n_params}', flush=True)
+
+if args.train:
+    dataset = {
+        'train': AddDataset(**args.train_dataset_args),
+        'valid': AddDataset(**args.valid_dataset_args)
+    }
     
-    err = (fpr + fnr) / 2
-    return err
+    loader = {
+        'train': DataLoader(dataset['train'], batch_size=args.batch, num_workers=4, pin_memory=True, \
+            shuffle=True, drop_last=True),
+        'valid': DataLoader(dataset['valid'], batch_size=1, num_workers=4, pin_memory=True)
+    }
 
-if __name__ == "__main__":
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print("Device:", device, torch.cuda.get_device_name(0))
-    else:
-        device = torch.device("cpu")
-        print("Device:", device)
-    
-    dev_data = torch.load("/tmp2/b08208032/ADD2023/pt/dev_data.pt")
-    dev_label = torch.load("/tmp2/b08208032/ADD2023/pt/dev_label.pt")
-    test_data = torch.load("/tmp2/b08208032/ADD2023/pt/test_data.pt")
+    criterion = nn.CrossEntropyLoss().to(device)
+    optimizer = getattr(optim, args.optim['name'])(model.parameters(), **args.optim['args'])
 
-    model_pt = "/tmp2/b08208032/CaiCai_FAD/checkpoints/b64/model14.pt"
-    model = MyModel().to(device)
-    model.load_state_dict(torch.load(model_pt))
+    runner = Runner(model, loader, device, criterion, optimizer, args=args)
+    runner.train()
 
-    err = []
-    
-    with torch.no_grad():
-        pred = model(dev_data[1].to(device)).cpu()
-        print(calculate_err(pred, dev_label[1], 0.5))
+if args.test:
+    dataset = {
+        'test': AddDataset(**args.test_dataset_args)
+    }
 
+    loader = {
+        'test': DataLoader(dataset['test'], batch_size=1, num_workers=4, pin_memory=True)
+    }
 
+    runner = Runner(model, loader, device, args=args)
+    runner.test(args.params)
 
+if args.eval:
+    dataset = {
+        'eval': EvalDataset(**args.eval_dataset_args)
+    }
+
+    loader = {
+        'eval': DataLoader(dataset['eval'], batch_size=1, num_workers=4, pin_memory=True)
+    }    
+
+    runner = Runner(model, loader, device, args=args)
+    runner.evaluate(args.params, args.outfile)
