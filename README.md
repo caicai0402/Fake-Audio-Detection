@@ -4,6 +4,7 @@
 The original paper can be found at: https://arxiv.org/abs/2211.00226
 
 ## Introduction
+The following figure illustrates the architecture of the model proposed in the paper. More details about the data and the model, including the model's parameters, can be found in the paper for a more comprehensive explanation and description.
 
 ![alt text](https://github.com/caicai0402/Fake-Audio-Detection/blob/main/Model_Architecture.png)
 
