@@ -1,4 +1,7 @@
-# The implementation for ICASSP 2022 paper: **Partially Fake Audio Detection by Self-Attention-Based Fake Span Detection**
+# The implementation for **WAVEFORM BOUNDARY DETECTION FOR PARTIOALLY SPOOFED AUDIO**
+
+## Citation
+The original paper can be found at: https://arxiv.org/abs/2211.00226
 
 
 ## Introduction
@@ -13,3 +16,5 @@ This recipe provides a tiny dataset that is part of the Training, Development, a
 The noise and impulse response dataset can be download from open resources:
 * the MUSAN dataset: https://www.openslr.org/17/
 * the simulated RIR dataset: https://www.openslr.org/26/
+
+## Citation
